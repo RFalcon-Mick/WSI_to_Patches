@@ -33,7 +33,7 @@ def copy_colorful_images(input_dir, output_dir):
             image_path = os.path.join(input_dir, filename)
             if is_colorful(image_path):
                 shutil.copy2(image_path, output_dir)
-                print(f"成功复制图像: {filename}",i)
+                print(f"成功复制图像: {filename}")
 
 # 设置输入和输出目录
 input_dir = "output"
