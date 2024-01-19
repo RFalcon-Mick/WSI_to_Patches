@@ -1,10 +1,11 @@
 import os
 import subprocess
-import requests
 import zipfile
 from zipfile import ZipFile
 from io import BytesIO
 import shutil
+
+
 def create_folder_if_not_exists(folder_name):
     # 检查文件夹是否存在
     if not os.path.exists(folder_name):
@@ -61,6 +62,7 @@ def find_and_unzip(openslide_dir):
 
 
 def download_file(url, destination_folder):
+    import requests
     # 发送HTTP请求
     response = requests.get(url)
     # 检查请求是否成功
@@ -93,7 +95,7 @@ def main():
         print(f"错误信息: {e}")
 
     # 要安装的包列表
-    packages_to_install = ['Pillow', 'opencv-python', 'numpy', 'openslide-python']
+    packages_to_install = ['Pillow', 'opencv-python', 'numpy', 'openslide-python', 'requests']
 
     # 尝试安装每个包
     for package in packages_to_install:
