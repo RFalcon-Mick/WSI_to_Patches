@@ -14,6 +14,10 @@ with os.add_dll_directory(str(Path(__file__).parent.joinpath('openslide', 'bin')
 import multiprocessing as mp
 # 导入tqdm模块
 from tqdm import tqdm
+# 导入PIL模块
+from PIL import Image
+# 导入shutil模块
+import shutil
 
 # 设置日志格式和级别
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -27,6 +31,8 @@ parser.add_argument('-d', '--downsample_factor', type=int, choices=[1, 2, 4, 8, 
 parser.add_argument('-i', '--input_dir', type=Path, default=Path('input'), help='The directory where the .svs files are located.')
 parser.add_argument('-o', '--output_dir', type=Path, default=Path('output'), help='The directory where the tiles and coordinates will be saved.')
 parser.add_argument('-p', '--processes', type=int, choices=[1, 2, 4, 8], default=8, help='The number of processes to use.')
+# 添加一个新的参数，用于控制是否调用第二段代码
+parser.add_argument('-f', '--filter', action='store_true', help='Whether to filter out the images that are not colorful or have large black areas.')
 args = parser.parse_args()
 
 # 创建输出目录
@@ -88,10 +94,44 @@ def save_tile(tile_img, x, y, file_name, sub_dir):
         # 修改tile_output_path，让它指向子目录
         tile_output_path = sub_dir.joinpath(f"{file_name}_x{x}_y{y}.png")
         cv2.imwrite(str(tile_output_path), cv2.cvtColor(tile_img, cv2.COLOR_RGBA2RGB))
-        # logger.info(f"Saved tile to {tile_output_path}")
         return tile_output_path, (x, y)
 
+def is_colorful(image_path, threshold=200, black_threshold=0.05):
+    """判断图像是否颜色鲜明且不包含大块黑色"""
+    image = Image.open(image_path)
+    rgb = image.convert("RGB")
+    width, height = image.size
+    total_r, total_g, total_b = 0, 0, 0
+    black_pixels = 0
 
+    for x in range(width):
+        for y in range(height):
+            r, g, b = rgb.getpixel((x, y))
+            total_r += r
+            total_g += g
+            total_b += b
+            if r == 0 and g == 0 and b == 0:
+                black_pixels += 1
+
+    avg_r = total_r // (width * height)
+    avg_g = total_g // (width * height)
+    avg_b = total_b // (width * height)
+
+    return avg_r < threshold and avg_g < threshold and avg_b < threshold and black_pixels / (width * height) < black_threshold
+
+def copy_colorful_images(input_dir, output_dir):
+    """复制颜色鲜明且不包含大块黑色的图像到输出目录"""
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    for filename in os.listdir(input_dir):
+        if filename.endswith(".png"):
+            image_path = os.path.join(input_dir, filename)
+            if is_colorful(image_path):
+                shutil.copy2(image_path, output_dir)
+                print(f"成功复制图像: {filename}")
+
+# 在主模块中使用if __name__ == '__main__'语句
 # 在主模块中使用if __name__ == '__main__'语句
 if __name__ == '__main__':
     # 使用freeze_support()函数
@@ -124,6 +164,7 @@ if __name__ == '__main__':
                 pbar.update(1)
                 print(f"Finished {file_name} with {tile_count} tiles")
                 results.remove(result)  # 从列表中移除已完成的任务
+
     # 关闭进程池，等待所有进程完成
     pool.close()
     pool.join()
@@ -134,3 +175,11 @@ if __name__ == '__main__':
         writer.writerow(['Tile Path', 'X Coordinate', 'Y Coordinate'])
         for path, (x, y) in tile_coordinates.items():
             writer.writerow([path, x, y])
+
+    # 如果使用了-f --filter开关，就调用第二段代码
+    if args.filter:
+        # 设置输入和输出目录
+        input_dir = args.output_dir
+        output_dir = args.output_dir.joinpath('processed_output')
+        # 复制颜色鲜明且不包含大块黑色的图像到输出目录
+        copy_colorful_images(input_dir, output_dir)
