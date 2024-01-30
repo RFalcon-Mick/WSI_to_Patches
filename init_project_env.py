@@ -79,7 +79,7 @@ def download_file(url, destination_folder):
 
 def main():
     # 定义文件夹名称列表
-    folders = ['input', 'output', 'processed_output']
+    folders = ['input', 'output']
     # 获取当前工作目录
     current_dir = os.getcwd()
     # 遍历文件夹列表，创建不存在的文件夹
@@ -95,7 +95,7 @@ def main():
         print(f"错误信息: {e}")
 
     # 要安装的包列表
-    packages_to_install = ['Pillow', 'opencv-python', 'numpy', 'openslide-python', 'requests']
+    packages_to_install = ['Pillow', 'opencv-python', 'numpy', 'openslide-python', 'requests', 'tqdm', 'scikit-image']
 
     # 尝试安装每个包
     for package in packages_to_install:
