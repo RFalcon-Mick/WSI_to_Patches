@@ -23,3 +23,4 @@ def classify_folders(source_folder):
 # 调用函数，分别对randomized文件夹下的train文件夹和vail文件夹进行操作
 classify_folders("randomized/train")
 classify_folders("randomized/vail")
+#classify_folders("input")

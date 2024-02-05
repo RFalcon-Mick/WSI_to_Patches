@@ -9,7 +9,7 @@ test_ratio = 1-train_ratio
 
 
 # 询问用户随机种子
-seed = input("请输入一个整数作为随机种子，如果不想设置，请输入None\n")
+seed = input("请输入一个整数作为随机种子，如果不想设置，请输入None：")
 random.seed(seed) # 设置随机种子
 
 # 定义源目录和目标目录
@@ -18,7 +18,7 @@ target_dir = "randomized"
 tumor_dir = os.path.join(source_dir, "tumor")
 normal_dir = os.path.join(source_dir, "normal")
 train_dir = os.path.join(target_dir, "train")
-test_dir = os.path.join(target_dir, "vail")
+test_dir = os.path.join(target_dir, "val")
 
 # 如果目标目录不存在，就创建它
 if not os.path.exists(target_dir):
@@ -62,6 +62,6 @@ def copy_subdirs(source, target, test_ratio, train_ratio):
 # 调用函数，分别处理tumor和normal目录
 copy_subdirs(tumor_dir, target_dir, test_ratio, train_ratio)
 copy_subdirs(normal_dir, target_dir, test_ratio, train_ratio)
-
+# copy_subdirs("input", "randomized_input", test_ratio, train_ratio)
 # 打印完成提示
 print("随机复制完成！")
