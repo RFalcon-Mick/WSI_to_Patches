@@ -45,6 +45,10 @@ parser.add_argument(
 
 
 def load_config(config_path: Path):
+    """Load and validate the JSON config file.
+
+    Returns a tuple of (config, snapshot) and raises ValueError on invalid input.
+    """
     if not config_path.exists():
         raise ValueError(f"Config file not found: {config_path}")
 
@@ -281,6 +285,7 @@ def save_tile(tile_img, x, y, slide_name, sub_dir):
 
 
 def save_config_snapshot():
+    """Persist the resolved config snapshot to the experiment output directory."""
     args.output_dir.mkdir(parents=True, exist_ok=True)
     config_path = args.output_dir.joinpath("config.json")
     try:
