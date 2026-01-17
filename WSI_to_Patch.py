@@ -4,14 +4,20 @@ import json
 import math
 import multiprocessing as mp
 import os
+from contextlib import nullcontext
 from pathlib import Path
 from multiprocessing.dummy import Pool as ThreadPool
 import numpy as np
 from tqdm import tqdm
 from PIL import Image
 from skimage import measure
+from skimage.transform import rescale
 
-with os.add_dll_directory(str(Path(__file__).parent.joinpath('openslide', 'bin'))):
+_openslide_bin = Path(__file__).parent.joinpath('openslide', 'bin')
+_dll_context = nullcontext()
+if hasattr(os, "add_dll_directory") and _openslide_bin.exists():
+    _dll_context = os.add_dll_directory(str(_openslide_bin))
+with _dll_context:
     import openslide
 
 DOWNSAMPLE_CHOICES = [1, 2, 4, 8, 16, 32]
@@ -177,6 +183,16 @@ def is_colorful(image, threshold=200, black_threshold=0.05):
             width * height) < black_threshold
 
 
+def is_integer_factor(factor):
+    """Return True when factor is effectively an integer within tolerance."""
+    return math.isclose(
+        factor,
+        round(factor),
+        rel_tol=MPP_REL_TOLERANCE,
+        abs_tol=MPP_ABS_TOLERANCE
+    )
+
+
 def resolve_downsample_factor(slide, file_name):
     if args.mpp is None:
         return args.downsample_factor
@@ -196,16 +212,13 @@ def resolve_downsample_factor(slide, file_name):
 
     computed = args.mpp / base_mpp
     rounded = int(round(computed))
-    if not math.isclose(
-        computed,
-        rounded,
-        rel_tol=MPP_REL_TOLERANCE,
-        abs_tol=MPP_ABS_TOLERANCE
-    ):
-        raise ValueError(
-            f"{file_name} needs a non-integer downsample factor ({computed:.3f}) for MPP {args.mpp}; "
-            "use --downsample_factor instead."
-        )
+    if not is_integer_factor(computed):
+        if args.downsample_factor is not None:
+            raise ValueError(
+                f"{file_name} computed downsample factor {computed:.3f} from MPP {args.mpp}, "
+                f"which conflicts with downsample_factor {args.downsample_factor}. Remove one option or update values."
+            )
+        return computed
 
     if rounded not in DOWNSAMPLE_CHOICES:
         raise ValueError(
@@ -242,7 +255,21 @@ def process_file(file_path):
             tile_img = np.array(slide.read_region((i, j), 0, (args.tile_size, args.tile_size)))[:, :, :3]
 
             # 进行下采样和保存
-            tile_img_downsampled = measure.block_reduce(tile_img, (downsample_factor, downsample_factor, 1), np.mean)
+            if is_integer_factor(downsample_factor):
+                downsample_factor_int = int(round(downsample_factor))
+                tile_img_downsampled = measure.block_reduce(
+                    tile_img,
+                    (downsample_factor_int, downsample_factor_int, 1),
+                    np.mean
+                )
+            else:
+                tile_img_downsampled = rescale(
+                    tile_img,
+                    1 / downsample_factor,
+                    channel_axis=-1,
+                    preserve_range=True,
+                    anti_aliasing=True
+                )
             tile_img_downsampled = tile_img_downsampled.astype(np.uint8)
             result = pool.apply_async(save_tile, args=(tile_img_downsampled, i, j, slide_name, sub_dir))
             results.append(result)

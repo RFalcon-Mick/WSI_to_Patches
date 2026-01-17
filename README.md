@@ -42,7 +42,7 @@ python WSI_to_Patch.py --config config.json
 - `num_threads`：线程数，支持 1/2/4/8。
 - `processes`：进程数，支持 1/2/4/8。
 - `downsample_factor`：下采样倍率（1/2/4/8/16/32），与 `mpp` 二选一。
-- `mpp`：目标 MPP，自动推算下采样倍率（可选）。
+- `mpp`：目标 MPP，自动推算下采样倍率（可选，若为非整数倍率将自动重采样）。
 - `input_dir`：WSI 输入目录。
 - `output_dir`：输出根目录（实际输出会附加实验名称）。
 - `filter`：是否过滤颜色不鲜明或黑色占比高的 Patch。
@@ -67,7 +67,7 @@ output/
 
 ## 注意事项
 
-1. 使用 `mpp` 时要求 WSI 中包含 MPP 元数据，否则请使用 `downsample_factor`。
+1. 使用 `mpp` 时要求 WSI 中包含 MPP 元数据，否则请使用 `downsample_factor`。非整数倍率会自动采用重采样，处理速度可能较慢。
 2. Windows 用户需确保 OpenSlide DLL 可用，Linux 用户可使用系统包管理器安装 OpenSlide。
 
 ## 许可证
