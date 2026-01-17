@@ -67,7 +67,7 @@ output/
 
 ## 注意事项
 
-1. 使用 `mpp` 时要求 WSI 中包含 MPP 元数据，否则请使用 `downsample_factor`。非整数倍率会自动采用重采样。
+1. 使用 `mpp` 时要求 WSI 中包含 MPP 元数据，否则请使用 `downsample_factor`。非整数倍率会自动采用重采样，处理速度可能较慢。
 2. Windows 用户需确保 OpenSlide DLL 可用，Linux 用户可使用系统包管理器安装 OpenSlide。
 
 ## 许可证

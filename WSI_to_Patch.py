@@ -14,11 +14,9 @@ from skimage import measure
 from skimage.transform import rescale
 
 _openslide_bin = Path(__file__).parent.joinpath('openslide', 'bin')
-_dll_context = (
-    os.add_dll_directory(str(_openslide_bin))
-    if hasattr(os, "add_dll_directory") and _openslide_bin.exists()
-    else nullcontext()
-)
+_dll_context = nullcontext()
+if hasattr(os, "add_dll_directory") and _openslide_bin.exists():
+    _dll_context = os.add_dll_directory(str(_openslide_bin))
 with _dll_context:
     import openslide
 
