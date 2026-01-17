@@ -19,6 +19,7 @@ DEFAULT_DOWNSAMPLE_FACTOR = 2
 MPP_REL_TOLERANCE = 1e-3
 MPP_ABS_TOLERANCE = 1e-6
 OUTPUT_FORMAT_CHOICES = {"jpg", "jpeg", "png", "tif", "tiff"}
+OUTPUT_FORMAT_ALIASES = {"jpeg": "jpg"}
 DEFAULT_CONFIG = {
     "experiment_name": "default_experiment",
     "tile_size": 512,
@@ -47,8 +48,11 @@ def load_config(config_path: Path):
     if not config_path.exists():
         raise ValueError(f"Config file not found: {config_path}")
 
-    with config_path.open('r', encoding='utf-8') as config_file:
-        config_data = json.load(config_file)
+    try:
+        with config_path.open('r', encoding='utf-8') as config_file:
+            config_data = json.load(config_file)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Config file {config_path} is not valid JSON: {exc}") from exc
 
     config = DEFAULT_CONFIG.copy()
     config.update(config_data)
@@ -105,9 +109,7 @@ def load_config(config_path: Path):
     output_format = str(output_format).lower().lstrip(".")
     if output_format not in OUTPUT_FORMAT_CHOICES:
         raise ValueError(f"output_format must be one of {sorted(OUTPUT_FORMAT_CHOICES)}.")
-    if output_format == "jpeg":
-        output_format = "jpg"
-    config["output_format"] = output_format
+    config["output_format"] = OUTPUT_FORMAT_ALIASES.get(output_format, output_format)
 
     config["filter"] = bool(config.get("filter", False))
     input_dir = Path(config.get("input_dir") or DEFAULT_CONFIG["input_dir"])
@@ -275,8 +277,11 @@ def save_tile(tile_img, x, y, slide_name, sub_dir):
 
 def save_config_snapshot():
     config_path = args.output_dir.joinpath("config.json")
-    with config_path.open('w', encoding='utf-8') as config_file:
-        json.dump(CONFIG_SNAPSHOT, config_file, ensure_ascii=False, indent=2)
+    try:
+        with config_path.open('w', encoding='utf-8') as config_file:
+            json.dump(CONFIG_SNAPSHOT, config_file, ensure_ascii=False, indent=2)
+    except OSError as exc:
+        raise RuntimeError(f"Failed to save config snapshot to {config_path}: {exc}") from exc
 
 
 if __name__ == '__main__':
