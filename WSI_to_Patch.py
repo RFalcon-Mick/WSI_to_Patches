@@ -185,6 +185,15 @@ def is_colorful(image, threshold=200, black_threshold=0.05):
             width * height) < black_threshold
 
 
+def is_integer_factor(factor):
+    return math.isclose(
+        factor,
+        round(factor),
+        rel_tol=MPP_REL_TOLERANCE,
+        abs_tol=MPP_ABS_TOLERANCE
+    )
+
+
 def resolve_downsample_factor(slide, file_name):
     if args.mpp is None:
         return args.downsample_factor
@@ -204,12 +213,7 @@ def resolve_downsample_factor(slide, file_name):
 
     computed = args.mpp / base_mpp
     rounded = int(round(computed))
-    if math.isclose(
-        computed,
-        rounded,
-        rel_tol=MPP_REL_TOLERANCE,
-        abs_tol=MPP_ABS_TOLERANCE
-    ):
+    if is_integer_factor(computed):
         if rounded not in DOWNSAMPLE_CHOICES:
             raise ValueError(
                 f"{file_name} computed downsample factor {rounded} from MPP {args.mpp}, which is unsupported. "
@@ -252,12 +256,7 @@ def process_file(file_path):
             tile_img = np.array(slide.read_region((i, j), 0, (args.tile_size, args.tile_size)))[:, :, :3]
 
             # 进行下采样和保存
-            if math.isclose(
-                downsample_factor,
-                round(downsample_factor),
-                rel_tol=MPP_REL_TOLERANCE,
-                abs_tol=MPP_ABS_TOLERANCE
-            ):
+            if is_integer_factor(downsample_factor):
                 downsample_factor_int = int(round(downsample_factor))
                 tile_img_downsampled = measure.block_reduce(
                     tile_img,
