@@ -86,7 +86,7 @@ def resolve_downsample_factor(slide, file_name):
 
     mpp_x = slide.properties.get(openslide.PROPERTY_NAME_MPP_X)
     mpp_y = slide.properties.get(openslide.PROPERTY_NAME_MPP_Y)
-    if not mpp_x or not mpp_y:
+    if mpp_x is None or mpp_y is None:
         raise ValueError(
             f"{file_name} is missing MPP metadata; rerun with --downsample_factor instead of --mpp."
         )
