@@ -1,0 +1,12 @@
+{
+  "experiment_name": "demo_experiment",
+  "tile_size": 512,
+  "num_threads": 2,
+  "downsample_factor": 2,
+  "mpp": null,
+  "input_dir": "input",
+  "output_dir": "output",
+  "processes": 4,
+  "filter": false,
+  "output_format": "png"
+}
