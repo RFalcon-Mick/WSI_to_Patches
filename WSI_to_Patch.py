@@ -271,7 +271,11 @@ def save_tile(tile_img, x, y, slide_name, sub_dir):
     """保存图像块和其坐标"""
     # 修改tile_output_path，让它指向子目录
     tile_output_path = sub_dir.joinpath(f"{slide_name}_x{x}_y{y}.{args.output_format}")
-    cv2.imwrite(str(tile_output_path), cv2.cvtColor(tile_img, cv2.COLOR_RGBA2RGB))
+    if tile_img.shape[-1] == 4:
+        tile_img = cv2.cvtColor(tile_img, cv2.COLOR_RGBA2BGR)
+    else:
+        tile_img = cv2.cvtColor(tile_img, cv2.COLOR_RGB2BGR)
+    cv2.imwrite(str(tile_output_path), tile_img)
     return tile_output_path, (x, y)
 
 
