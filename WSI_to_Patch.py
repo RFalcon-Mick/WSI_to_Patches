@@ -14,7 +14,9 @@ with os.add_dll_directory(str(Path(__file__).parent.joinpath('openslide', 'bin')
     import openslide
 
 DOWNSAMPLE_CHOICES = [1, 2, 4, 8, 16, 32]
-MPP_TOLERANCE = 1e-3
+DEFAULT_DOWNSAMPLE_FACTOR = 2
+MPP_REL_TOLERANCE = 1e-3
+MPP_ABS_TOLERANCE = 1e-6
 
 # 定义命令行参数
 parser = argparse.ArgumentParser(description='Extract and save tiles from .svs image files.')
@@ -41,7 +43,7 @@ if args.mpp is not None and args.mpp <= 0:
     parser.error('--mpp must be a positive number.')
 
 if args.downsample_factor is None and args.mpp is None:
-    args.downsample_factor = 2
+    args.downsample_factor = DEFAULT_DOWNSAMPLE_FACTOR
 
 # 创建输出目录
 args.output_dir.mkdir(exist_ok=True)
@@ -97,7 +99,12 @@ def resolve_downsample_factor(slide, file_name):
 
     computed = args.mpp / base_mpp
     rounded = int(round(computed))
-    if not math.isclose(computed, rounded, rel_tol=MPP_TOLERANCE, abs_tol=MPP_TOLERANCE):
+    if not math.isclose(
+        computed,
+        rounded,
+        rel_tol=MPP_REL_TOLERANCE,
+        abs_tol=MPP_ABS_TOLERANCE
+    ):
         raise ValueError(
             f"{file_name} needs a non-integer downsample factor ({computed:.3f}) for MPP {args.mpp}; "
             "use --downsample_factor instead."
