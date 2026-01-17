@@ -8,8 +8,8 @@
 - 完善了图片初步过滤筛选功能，提升了ROI筛选的准确性。
 ## 使用方法
 1. 克隆本项目到本地。
-2. 将svs格式的WSI图像文件放入`input`文件夹。
-3. 运行`WSI_to_Patch.py`。该脚本会自动将WSI图像分割成Patch，并生成相对应的坐标，存储在`output`文件夹中。现在可以通过命令行参数自定义处理流程。
+2. 将svs格式的WSI图像文件放入`input`文件夹，或通过`--wsi_dir`/`--input_dir`指定WSI目录。
+3. 运行`WSI_to_Patch.py`。该脚本会自动将WSI图像分割成Patch，并生成相对应的坐标，存储在`output`文件夹中（可用`--out_dir`/`--output_dir`指定）。可通过`--downsample_factor`/`--sampling_rate`或`--mpp`指定采样率。
 ## 文件结构
 - `input/`: 存放待处理的svs格式WSI图像。
 - `output/`: 存放分割后的Patch图像及其坐标。
