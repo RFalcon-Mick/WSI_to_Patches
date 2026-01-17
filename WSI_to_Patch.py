@@ -107,8 +107,7 @@ def load_config(config_path: Path):
     if output_format is None:
         output_format = DEFAULT_CONFIG["output_format"]
     output_format = str(output_format).lower()
-    if output_format.startswith("."):
-        output_format = output_format[1:]
+    output_format = output_format[1:] if output_format.startswith(".") else output_format
     if output_format not in OUTPUT_FORMAT_CHOICES:
         raise ValueError(f"output_format must be one of {sorted(OUTPUT_FORMAT_CHOICES)}.")
     config["output_format"] = OUTPUT_FORMAT_ALIASES.get(output_format, output_format)
