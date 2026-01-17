@@ -14,6 +14,7 @@ with os.add_dll_directory(str(Path(__file__).parent.joinpath('openslide', 'bin')
     import openslide
 
 DOWNSAMPLE_CHOICES = [1, 2, 4, 8, 16, 32]
+MPP_TOLERANCE = 1e-3
 
 # 定义命令行参数
 parser = argparse.ArgumentParser(description='Extract and save tiles from .svs image files.')
@@ -96,7 +97,7 @@ def resolve_downsample_factor(slide, file_name):
 
     computed = args.mpp / base_mpp
     rounded = int(round(computed))
-    if not math.isclose(computed, rounded, rel_tol=1e-3, abs_tol=1e-3):
+    if not math.isclose(computed, rounded, rel_tol=MPP_TOLERANCE, abs_tol=MPP_TOLERANCE):
         raise ValueError(
             f"{file_name} needs a non-integer downsample factor ({computed:.3f}) for MPP {args.mpp}; "
             "use --downsample_factor instead."
@@ -110,8 +111,8 @@ def resolve_downsample_factor(slide, file_name):
 
     if args.downsample_factor is not None and args.downsample_factor != rounded:
         raise ValueError(
-            f"{file_name} downsample_factor {args.downsample_factor} does not match the MPP-derived {rounded}. "
-            "Remove one option or make them consistent."
+            f"{file_name} downsample_factor {args.downsample_factor} conflicts with MPP-derived {rounded} "
+            f"(target MPP {args.mpp} vs base MPP {base_mpp:.3f}). Remove one option or make them consistent."
         )
 
     return rounded
