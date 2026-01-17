@@ -1,5 +1,6 @@
 import argparse
 import cv2
+import math
 import multiprocessing as mp
 import os
 from pathlib import Path
@@ -12,23 +13,34 @@ from skimage import measure
 with os.add_dll_directory(str(Path(__file__).parent.joinpath('openslide', 'bin'))):
     import openslide
 
+DOWNSAMPLE_CHOICES = [1, 2, 4, 8, 16, 32]
+
 # 定义命令行参数
 parser = argparse.ArgumentParser(description='Extract and save tiles from .svs image files.')
 parser.add_argument('-t', '--tile_size', type=int, choices=[128, 256, 512, 1024], default=512,
                     help='The size of the tile in pixels.')
 parser.add_argument('-n', '--num_threads', type=int, choices=[1, 2, 4, 8], default=2,
                     help='The number of threads to use.')
-parser.add_argument('-d', '--downsample_factor', type=int, choices=[1, 2, 4, 8, 16, 32], default=2,
-                    help='The factor to downsample the image by.')
-parser.add_argument('-i', '--input_dir', type=Path, default=Path('input'),
-                    help='The directory where the .svs files are located.')
-parser.add_argument('-o', '--output_dir', type=Path, default=Path('output'),
+parser.add_argument('-d', '--downsample_factor', '--sampling_rate', '--sample_rate', type=int,
+                    choices=DOWNSAMPLE_CHOICES, default=None,
+                    help='The factor to downsample the image by (sampling rate).')
+parser.add_argument('--mpp', type=float, default=None,
+                    help='Target microns-per-pixel (MPP) to derive downsampling from slide metadata.')
+parser.add_argument('-i', '--input_dir', '--wsi_dir', type=Path, default=Path('input'),
+                    help='The directory where the WSI .svs files are located.')
+parser.add_argument('-o', '--output_dir', '--out_dir', type=Path, default=Path('output'),
                     help='The directory where the tiles and coordinates will be saved.')
 parser.add_argument('-p', '--processes', type=int, choices=[1, 2, 4, 8], default=4,
                     help='The number of processes to use.')
 parser.add_argument('-f', '--filter', action='store_true',
                     help='Whether to filter out the images that are not colorful or have large black areas.')
 args = parser.parse_args()
+
+if args.mpp is not None and args.mpp <= 0:
+    parser.error('--mpp must be a positive number.')
+
+if args.downsample_factor is None and args.mpp is None:
+    args.downsample_factor = 2
 
 # 创建输出目录
 args.output_dir.mkdir(exist_ok=True)
@@ -65,9 +77,50 @@ def is_colorful(image, threshold=200, black_threshold=0.05):
             width * height) < black_threshold
 
 
+def resolve_downsample_factor(slide, file_name):
+    if args.mpp is None:
+        return args.downsample_factor
+
+    mpp_x = slide.properties.get(openslide.PROPERTY_NAME_MPP_X)
+    mpp_y = slide.properties.get(openslide.PROPERTY_NAME_MPP_Y)
+    if not mpp_x or not mpp_y:
+        raise ValueError(
+            f"{file_name} is missing MPP metadata; rerun with --downsample_factor instead of --mpp."
+        )
+
+    base_mpp = (float(mpp_x) + float(mpp_y)) / 2
+    if base_mpp <= 0:
+        raise ValueError(
+            f"{file_name} has invalid MPP metadata; rerun with --downsample_factor instead of --mpp."
+        )
+
+    computed = args.mpp / base_mpp
+    rounded = int(round(computed))
+    if not math.isclose(computed, rounded, rel_tol=1e-3, abs_tol=1e-3):
+        raise ValueError(
+            f"{file_name} needs a non-integer downsample factor ({computed:.3f}) for MPP {args.mpp}; "
+            "use --downsample_factor instead."
+        )
+
+    if rounded not in DOWNSAMPLE_CHOICES:
+        raise ValueError(
+            f"{file_name} computed downsample factor {rounded} from MPP {args.mpp}, which is unsupported. "
+            f"Choose one of {DOWNSAMPLE_CHOICES} or use --downsample_factor."
+        )
+
+    if args.downsample_factor is not None and args.downsample_factor != rounded:
+        raise ValueError(
+            f"{file_name} downsample_factor {args.downsample_factor} does not match the MPP-derived {rounded}. "
+            "Remove one option or make them consistent."
+        )
+
+    return rounded
+
+
 def process_file(file_path):
     file_name = file_path.name
     slide = openslide.OpenSlide(str(file_path))
+    downsample_factor = resolve_downsample_factor(slide, file_name)
 
     # 创建一个子目录，名称为file_name
     sub_dir = args.output_dir.joinpath(file_name)
@@ -83,7 +136,7 @@ def process_file(file_path):
             tile_img = np.array(slide.read_region((i, j), 0, (args.tile_size, args.tile_size)))[:, :, :3]
 
             # 进行下采样和保存
-            tile_img_downsampled = measure.block_reduce(tile_img, (args.downsample_factor, args.downsample_factor, 1), np.mean)
+            tile_img_downsampled = measure.block_reduce(tile_img, (downsample_factor, downsample_factor, 1), np.mean)
             tile_img_downsampled = tile_img_downsampled.astype(np.uint8)
             result = pool.apply_async(save_tile, args=(tile_img_downsampled, i, j, file_name, sub_dir))
             results.append(result)
