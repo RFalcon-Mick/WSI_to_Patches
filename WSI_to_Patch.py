@@ -4,14 +4,22 @@ import json
 import math
 import multiprocessing as mp
 import os
+from contextlib import nullcontext
 from pathlib import Path
 from multiprocessing.dummy import Pool as ThreadPool
 import numpy as np
 from tqdm import tqdm
 from PIL import Image
 from skimage import measure
+from skimage.transform import rescale
 
-with os.add_dll_directory(str(Path(__file__).parent.joinpath('openslide', 'bin'))):
+_openslide_bin = Path(__file__).parent.joinpath('openslide', 'bin')
+_dll_context = (
+    os.add_dll_directory(str(_openslide_bin))
+    if hasattr(os, "add_dll_directory") and _openslide_bin.exists()
+    else nullcontext()
+)
+with _dll_context:
     import openslide
 
 DOWNSAMPLE_CHOICES = [1, 2, 4, 8, 16, 32]
@@ -196,30 +204,32 @@ def resolve_downsample_factor(slide, file_name):
 
     computed = args.mpp / base_mpp
     rounded = int(round(computed))
-    if not math.isclose(
+    if math.isclose(
         computed,
         rounded,
         rel_tol=MPP_REL_TOLERANCE,
         abs_tol=MPP_ABS_TOLERANCE
     ):
+        if rounded not in DOWNSAMPLE_CHOICES:
+            raise ValueError(
+                f"{file_name} computed downsample factor {rounded} from MPP {args.mpp}, which is unsupported. "
+                f"Choose one of {DOWNSAMPLE_CHOICES} or use --downsample_factor."
+            )
+
+        if args.downsample_factor is not None and args.downsample_factor != rounded:
+            raise ValueError(
+                f"{file_name} downsample_factor {args.downsample_factor} conflicts with MPP-derived {rounded} "
+                f"(target MPP {args.mpp} vs base MPP {base_mpp:.3f}). Remove one option or make them consistent."
+            )
+        return rounded
+
+    if args.downsample_factor is not None:
         raise ValueError(
-            f"{file_name} needs a non-integer downsample factor ({computed:.3f}) for MPP {args.mpp}; "
-            "use --downsample_factor instead."
+            f"{file_name} computed downsample factor {computed:.3f} from MPP {args.mpp}, "
+            f"which conflicts with downsample_factor {args.downsample_factor}. Remove one option or update values."
         )
 
-    if rounded not in DOWNSAMPLE_CHOICES:
-        raise ValueError(
-            f"{file_name} computed downsample factor {rounded} from MPP {args.mpp}, which is unsupported. "
-            f"Choose one of {DOWNSAMPLE_CHOICES} or use --downsample_factor."
-        )
-
-    if args.downsample_factor is not None and args.downsample_factor != rounded:
-        raise ValueError(
-            f"{file_name} downsample_factor {args.downsample_factor} conflicts with MPP-derived {rounded} "
-            f"(target MPP {args.mpp} vs base MPP {base_mpp:.3f}). Remove one option or make them consistent."
-        )
-
-    return rounded
+    return computed
 
 
 def process_file(file_path):
@@ -242,7 +252,26 @@ def process_file(file_path):
             tile_img = np.array(slide.read_region((i, j), 0, (args.tile_size, args.tile_size)))[:, :, :3]
 
             # 进行下采样和保存
-            tile_img_downsampled = measure.block_reduce(tile_img, (downsample_factor, downsample_factor, 1), np.mean)
+            if math.isclose(
+                downsample_factor,
+                round(downsample_factor),
+                rel_tol=MPP_REL_TOLERANCE,
+                abs_tol=MPP_ABS_TOLERANCE
+            ):
+                downsample_factor_int = int(round(downsample_factor))
+                tile_img_downsampled = measure.block_reduce(
+                    tile_img,
+                    (downsample_factor_int, downsample_factor_int, 1),
+                    np.mean
+                )
+            else:
+                tile_img_downsampled = rescale(
+                    tile_img,
+                    1 / downsample_factor,
+                    channel_axis=-1,
+                    preserve_range=True,
+                    anti_aliasing=True
+                )
             tile_img_downsampled = tile_img_downsampled.astype(np.uint8)
             result = pool.apply_async(save_tile, args=(tile_img_downsampled, i, j, slide_name, sub_dir))
             results.append(result)
