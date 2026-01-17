@@ -186,6 +186,7 @@ def is_colorful(image, threshold=200, black_threshold=0.05):
 
 
 def is_integer_factor(factor):
+    """Return True when factor is effectively an integer within tolerance."""
     return math.isclose(
         factor,
         round(factor),
@@ -213,27 +214,27 @@ def resolve_downsample_factor(slide, file_name):
 
     computed = args.mpp / base_mpp
     rounded = int(round(computed))
-    if is_integer_factor(computed):
-        if rounded not in DOWNSAMPLE_CHOICES:
+    if not is_integer_factor(computed):
+        if args.downsample_factor is not None:
             raise ValueError(
-                f"{file_name} computed downsample factor {rounded} from MPP {args.mpp}, which is unsupported. "
-                f"Choose one of {DOWNSAMPLE_CHOICES} or use --downsample_factor."
+                f"{file_name} computed downsample factor {computed:.3f} from MPP {args.mpp}, "
+                f"which conflicts with downsample_factor {args.downsample_factor}. Remove one option or update values."
             )
+        return computed
 
-        if args.downsample_factor is not None and args.downsample_factor != rounded:
-            raise ValueError(
-                f"{file_name} downsample_factor {args.downsample_factor} conflicts with MPP-derived {rounded} "
-                f"(target MPP {args.mpp} vs base MPP {base_mpp:.3f}). Remove one option or make them consistent."
-            )
-        return rounded
-
-    if args.downsample_factor is not None:
+    if rounded not in DOWNSAMPLE_CHOICES:
         raise ValueError(
-            f"{file_name} computed downsample factor {computed:.3f} from MPP {args.mpp}, "
-            f"which conflicts with downsample_factor {args.downsample_factor}. Remove one option or update values."
+            f"{file_name} computed downsample factor {rounded} from MPP {args.mpp}, which is unsupported. "
+            f"Choose one of {DOWNSAMPLE_CHOICES} or use --downsample_factor."
         )
 
-    return computed
+    if args.downsample_factor is not None and args.downsample_factor != rounded:
+        raise ValueError(
+            f"{file_name} downsample_factor {args.downsample_factor} conflicts with MPP-derived {rounded} "
+            f"(target MPP {args.mpp} vs base MPP {base_mpp:.3f}). Remove one option or make them consistent."
+        )
+
+    return rounded
 
 
 def process_file(file_path):
