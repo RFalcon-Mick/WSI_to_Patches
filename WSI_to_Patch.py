@@ -106,7 +106,9 @@ def load_config(config_path: Path):
     output_format = config.get("output_format")
     if output_format is None:
         output_format = DEFAULT_CONFIG["output_format"]
-    output_format = str(output_format).lower().lstrip(".")
+    output_format = str(output_format).lower()
+    if output_format.startswith("."):
+        output_format = output_format[1:]
     if output_format not in OUTPUT_FORMAT_CHOICES:
         raise ValueError(f"output_format must be one of {sorted(OUTPUT_FORMAT_CHOICES)}.")
     config["output_format"] = OUTPUT_FORMAT_ALIASES.get(output_format, output_format)
@@ -129,7 +131,7 @@ def load_config(config_path: Path):
 
 
 args = parser.parse_args()
-
+CONFIG_SNAPSHOT = {}
 try:
     args_config, CONFIG_SNAPSHOT = load_config(args.config)
 except ValueError as exc:
@@ -280,6 +282,7 @@ def save_tile(tile_img, x, y, slide_name, sub_dir):
 
 
 def save_config_snapshot():
+    args.output_dir.mkdir(parents=True, exist_ok=True)
     config_path = args.output_dir.joinpath("config.json")
     try:
         with config_path.open('w', encoding='utf-8') as config_file:
